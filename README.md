@@ -172,11 +172,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-public class NightlyJobScheduler {
+public class Tasks {
 
     private final TaskRunnerFactory taskRunnerFactory;
 
-    public NightlyJobScheduler(TaskRunnerFactory taskRunnerFactory) {
+    public Tasks(TaskRunnerFactory taskRunnerFactory) {
         this.taskRunnerFactory = taskRunnerFactory;
     }
 
