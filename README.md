@@ -42,13 +42,13 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 </repositories>
 
 <dependency>
-    <groupId>dev.alaugks</groupId>
+    <groupId>io.github</groupId>
     <artifactId>pkg.runner</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-`TaskRunnerFactory` is a `@Component` in the package `dev.alaugks.pkg.runner`.
+`TaskRunnerFactory` is a `@Component` in the package `io`.
 Make sure that package is part of your component scan, for example:
 
 ```java
@@ -73,7 +73,7 @@ run together.
 ```java
 package com.example.jobs;
 
-import dev.alaugks.pkg.runner.TaskRunnerInterface;
+import io.github.alaugks.pkg.runner.TaskRunnerInterface;
 
 public interface NightlyJob extends TaskRunnerInterface {
 }
@@ -115,7 +115,7 @@ finish.
 ```java
 package com.example.jobs;
 
-import dev.alaugks.pkg.runner.TaskRunnerFactory;
+import io.github.alaugks.pkg.runner.TaskRunnerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -165,7 +165,7 @@ Then add a scheduled trigger that delegates to `TaskRunnerFactory`:
 ```java
 package com.example.jobs;
 
-import dev.alaugks.pkg.runner.TaskRunnerFactory;
+import io.github.alaugks.pkg.runner.TaskRunnerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -211,7 +211,7 @@ public void runNightly() throws Exception {
   `ExecutionException`; non-`Exception` throwables are wrapped in a
   `RuntimeException`). Tasks that are already running are not cancelled.
 - **Logging:** task start is logged at `DEBUG` via SLF4J under the
-  `dev.alaugks.pkg.runner.TaskRunnerFactory` logger.
+  `io` logger.
 
 ## Build
 

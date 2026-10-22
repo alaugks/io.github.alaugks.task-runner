@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package dev.alaugks.pkg.runner;
+package io.github.alaugks.pkg.runner;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
