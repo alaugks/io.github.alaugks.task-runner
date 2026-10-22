@@ -2,18 +2,21 @@ name: "Central Release"
 run-name: Central Release [${{ github.ref_name }}]
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'
   push:
     branches:
       - 'snapshot'
 jobs:
   release:
     name: Release
-    # Only the snapshot branch may deploy. Manual runs on any other ref are skipped
-    if: github.ref == 'refs/heads/snapshot'
+    if: github.ref == 'refs/heads/snapshot' || github.event_name == 'schedule'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: snapshot
 
       - name: Setup Java
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1

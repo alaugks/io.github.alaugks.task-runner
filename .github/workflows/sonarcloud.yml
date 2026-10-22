@@ -1,21 +1,9 @@
 name: "Test and Static Code Analyze"
 run-name: "Test and Static Code Analyze [${{ github.ref_name }}]"
 on:
-#  push:
-#    branches:
-#      - main
-#      - 'snapshot*'
-#    paths-ignore:
-#      - '**/*.md'
-#      - 'docs/**'
-#  pull_request:
-#    types: [opened, synchronize, reopened]
-#    branches:
-#      - main
-#      - 'snapshot*'
-#    paths-ignore:
-#      - '**/*.md'
-#      - 'docs/**'
+  push:
+    branches:
+      - snapshot
   workflow_dispatch:
 permissions:
   contents: read
