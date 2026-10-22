@@ -14,7 +14,7 @@
     <artifactId>pkg-runner</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>io.github.pkg.runner</name>
+    <name>io.github.alaugks.pkg.runner</name>
     <description>Runs Spring-managed task strategies in parallel.</description>
     <url>https://github.com/alaugks/pkg-taskrunner</url>
 
