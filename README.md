@@ -19,6 +19,7 @@ logs easier to read.
 
 ## Getting the code
 
+> [!NOTE] 
 > **For testing only.** For the time being, the library is published as a
 > `SNAPSHOT` to the Maven Central snapshot repository. Use it to try the
 > library out. For production, copy the source code into your own project (see
