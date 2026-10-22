@@ -29,7 +29,7 @@ public class TaskRunner {
 		return new Builder(strategies);
 	}
 
-	public <T extends TaskRunnerInterface & Runnable> void runAll(Class<T> strategyClass) throws TaskRunnerRuntimeException {
+	public <T extends TaskRunnerInterface> void runAll(Class<T> strategyClass) throws TaskRunnerRuntimeException {
 		List<? extends Future<?>> futures = this.strategies.stream()
 			.filter(strategyClass::isInstance)
 			.map(strategyClass::cast)
