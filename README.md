@@ -46,7 +46,7 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 
 <dependency>
     <groupId>io.github.alaugks</groupId>
-    <artifactId>pkg-runner</artifactId>
+    <artifactId>task-runner</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -68,7 +68,7 @@ run together.
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.pkg.runner.TaskRunnerInterface;
+import io.github.alaugks.taskrunner.TaskRunnerInterface;
 
 public interface NightlyJob extends TaskRunnerInterface {
 }
@@ -110,8 +110,8 @@ all strategies; Spring injects every bean implementing
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.pkg.runner.TaskRunnerFactory;
-import io.github.alaugks.pkg.runner.TaskRunnerInterface;
+import io.github.alaugks.taskrunner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunnerInterface;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -137,7 +137,7 @@ finish.
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.pkg.runner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunnerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -187,7 +187,7 @@ Then add a scheduled trigger that delegates to `TaskRunnerFactory`:
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.pkg.runner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunnerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -235,7 +235,7 @@ public void runNightly() {
   interrupt flag is restored and a `TaskRunnerRuntimeException` is thrown.
   Tasks that are already running are not cancelled.
 - **Logging:** task start is logged at `DEBUG` via SLF4J under the
-  `io.github.alaugks.pkg.runner.TaskRunnerFactory` logger.
+  `io.github.alaugks.taskrunner.TaskRunnerFactory` logger.
 
 ## Build
 

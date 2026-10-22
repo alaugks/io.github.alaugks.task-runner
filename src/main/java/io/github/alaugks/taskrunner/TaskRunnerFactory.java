@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package io.github.alaugks.pkg.runner;
+package io.github.alaugks.taskrunner;
 
 import java.util.List;
 import java.util.Objects;

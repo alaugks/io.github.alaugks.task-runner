@@ -11,10 +11,10 @@
     </parent>
 
     <groupId>io.github.alaugks</groupId>
-    <artifactId>pkg-runner</artifactId>
+    <artifactId>task-runner</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>io.github.alaugks.pkg.runner</name>
+    <name>io.github.alaugks.taskrunner</name>
     <description>Runs Spring-managed task strategies in parallel.</description>
     <url>https://github.com/alaugks/pkg-taskrunner</url>
 
