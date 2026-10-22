@@ -130,7 +130,7 @@ public class TaskRunnerConfig {
 
 ### 4. Run all strategies in parallel
 
-Inject `TaskRunner` and call `runAll(...)` with the marker interface.
+Inject `TaskRunner` and call `runAll(Class<T> strategyClass)` with the marker interface.
 Every matching bean runs concurrently; the call returns once all of them
 finish.
 
@@ -156,7 +156,7 @@ public class NightlyScheduler {
 ```
 
 You can define as many marker interfaces as you need (for example
-`NightlyJob`, `HourlyJob`, `OnStartupJob`) and call `runAll(...)` separately
+`NightlyJob`, `HourlyJob`, `OnStartupJob`) and call `runAll(Class<T> strategyClass)` separately
 for each one.
 
 ### 5. Trigger strategies from a scheduled job
@@ -226,7 +226,7 @@ public void runNightly() {
 ## Behavior
 
 - **Concurrency:** strategies run on a fixed thread pool. The size is set with
-  `poolSize(...)` on the builder and defaults to 10.
+  `poolSize(int poolSize)` on the builder and defaults to 10.
 - **Thread names:** each worker thread is named
   `strategy-<StrategyClassName>-<ThreadId>` for the duration of the task.
 - **Error handling:** `runAll` waits for the tasks in order. If a strategy
