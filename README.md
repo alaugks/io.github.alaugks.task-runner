@@ -42,8 +42,8 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 </repositories>
 
 <dependency>
-    <groupId>io.github</groupId>
-    <artifactId>pkg.runner</artifactId>
+    <groupId>io.github.alaugks</groupId>
+    <artifactId>pkg-runner</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 </dependency>
 ```
@@ -52,7 +52,7 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 Make sure that package is part of your component scan, for example:
 
 ```java
-@SpringBootApplication(scanBasePackages = {"com.example", "dev.alaugks.pkg.runner"})
+@SpringBootApplication(scanBasePackages = {"com.example", "io.github.alaugks.pkg.runner"})
 ```
 
 ### Production: copy the source
