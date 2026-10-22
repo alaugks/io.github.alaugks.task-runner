@@ -23,7 +23,7 @@ class TaskRunnerTest {
 	interface TestStrategy extends TaskRunnerInterface {}
 
 	@Test
-	void testRunAll10Minutes() throws Exception {
+	void testRunAll10Minutes() {
 
 		TaskRunnerInterface mockMinutesStrategy = mock(TaskRunnerInterface.class);
 
@@ -39,7 +39,7 @@ class TaskRunnerTest {
 	}
 
 	@Test
-	void test_runAll_setsCustomThreadName() throws Exception {
+	void test_runAll_setsCustomThreadName() {
 		Set<String> threadNames = ConcurrentHashMap.newKeySet();
 
 		TestStrategy strategy = () -> threadNames.add(Thread.currentThread().getName());

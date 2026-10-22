@@ -1,21 +1,40 @@
-# Parallel Task Strategies for Spring
+# Parallel Task Strategies
 
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=alaugks_pkg-taskrunner&metric=alert_status)](https://sonarcloud.io/summary/overall?id=alaugks_pkg-taskrunner)
 
-A small Spring Boot library that runs multiple task strategies in parallel.
+A small library that runs multiple task strategies in parallel. It works with
+plain Java and integrates easily with Spring, but has no Spring dependency.
 
-`TaskRunner` takes a list of `TaskRunnerInterface` strategies (typically
-all Spring-managed beans), picks those implementing a given subtype and
-executes each one concurrently on a fixed thread pool. Exceptions thrown inside a task are propagated back to the caller,
-and each worker thread is renamed to `strategy-<ClassName>-<ThreadId>` to make
-logs easier to read.
+`TaskRunner` takes a list of `TaskRunnerInterface` strategies (for example all
+Spring-managed beans), picks those implementing a given subtype and executes
+each one concurrently on a fixed thread pool. Exceptions thrown inside a task
+are wrapped and propagated back to the caller, and each worker thread is
+renamed to `strategy-<ClassName>-<ThreadId>` to make logs easier to read.
+
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Getting the code](#getting-the-code)
+  - [Try it via Maven Central snapshots](#try-it-via-maven-central-snapshots)
+  - [Production: copy the source](#production-copy-the-source)
+- [Usage](#usage)
+  - [1. Define a marker interface for a group of strategies](#1-define-a-marker-interface-for-a-group-of-strategies)
+  - [2. Implement strategies](#2-implement-strategies)
+- [Usage without Spring](#usage-without-spring)
+- [Usage with Spring](#usage-with-spring)
+  - [Strategies as Spring beans](#strategies-as-spring-beans)
+  - [Create the runner](#create-the-runner)
+  - [Run all strategies in parallel](#run-all-strategies-in-parallel)
+  - [Trigger strategies from a scheduled job](#trigger-strategies-from-a-scheduled-job)
+- [Behavior](#behavior)
+- [Build](#build)
+- [License](#license)
 
 ## Requirements
 
 - Java 17+
 - `slf4j-api` (the only dependency)
-- Spring Framework 7 / Spring Boot 4.x for the examples below (the library
-  itself has no Spring dependency)
+- Spring is optional. The Spring examples below use Spring Boot 4.x.
 
 ## Getting the code
 
@@ -62,8 +81,8 @@ The library consists of only three classes, `TaskRunner`,
 ### 1. Define a marker interface for a group of strategies
 
 Group related tasks behind a shared interface that extends
-`TaskRunnerInterface`. The runner uses this interface to pick which beans to
-run together.
+`TaskRunnerInterface`. The runner uses this interface to pick which strategies
+to run together.
 
 ```java
 package com.example.jobs;
@@ -74,10 +93,66 @@ public interface NightlyJob extends TaskRunnerInterface {
 }
 ```
 
-### 2. Implement strategies as Spring beans
+### 2. Implement strategies
 
-Each strategy is a regular Spring component implementing your marker
-interface. The `run()` method contains the task logic.
+Each strategy implements your marker interface. The `run()` method contains the
+task logic.
+
+```java
+package com.example.jobs;
+
+public class CleanupTempFilesJob implements NightlyJob {
+    @Override
+    public void run() {
+        // ... do work
+    }
+}
+
+public class RefreshCacheJob implements NightlyJob {
+    @Override
+    public void run() {
+        // ... do work
+    }
+}
+```
+
+## Usage without Spring
+
+Pass all strategies to the builder and call `runAll(Class<T> strategyClass)`
+with the marker interface. Every matching strategy runs concurrently; the call
+returns once all of them finish. The pool size is optional and defaults to 10.
+
+```java
+package com.example;
+
+import io.github.alaugks.taskrunner.TaskRunner;
+import io.github.alaugks.taskrunner.TaskRunnerInterface;
+import com.example.jobs.CleanupTempFilesJob;
+import com.example.jobs.NightlyJob;
+import com.example.jobs.RefreshCacheJob;
+import java.util.List;
+
+public class Application {
+    public static void main(String[] args) {
+        List<TaskRunnerInterface> strategies = List.of(
+            new CleanupTempFilesJob(),
+            new RefreshCacheJob()
+        );
+
+        TaskRunner taskRunner = TaskRunner.builder(strategies)
+            .poolSize(4) // optional, default: 10
+            .build();
+
+        taskRunner.runAll(NightlyJob.class);
+    }
+}
+```
+
+## Usage with Spring
+
+### Strategies as Spring beans
+
+Annotate each strategy with `@Component`:
 
 ```java
 package com.example.jobs;
@@ -101,7 +176,7 @@ public class RefreshCacheJob implements NightlyJob {
 }
 ```
 
-### 3. Create the runner
+### Create the runner
 
 Create the runner with its builder and expose it as a bean. The builder takes
 all strategies; Spring injects every bean implementing
@@ -128,11 +203,11 @@ public class TaskRunnerConfig {
 }
 ```
 
-### 4. Run all strategies in parallel
+### Run all strategies in parallel
 
-Inject `TaskRunner` and call `runAll(Class<T> strategyClass)` with the marker interface.
-Every matching bean runs concurrently; the call returns once all of them
-finish.
+Inject `TaskRunner` and call `runAll(Class<T> strategyClass)` with the marker
+interface. Every matching bean runs concurrently; the call returns once all of
+them finish.
 
 ```java
 package com.example.jobs;
@@ -156,10 +231,10 @@ public class NightlyScheduler {
 ```
 
 You can define as many marker interfaces as you need (for example
-`NightlyJob`, `HourlyJob`, `OnStartupJob`) and call `runAll(Class<T> strategyClass)` separately
-for each one.
+`NightlyJob`, `HourlyJob`, `OnStartupJob`) and call
+`runAll(Class<T> strategyClass)` separately for each one.
 
-### 5. Trigger strategies from a scheduled job
+### Trigger strategies from a scheduled job
 
 To run a strategy group on a schedule, enable Spring scheduling and annotate a
 method with `@Scheduled`. The example below runs every night at 02:00.
