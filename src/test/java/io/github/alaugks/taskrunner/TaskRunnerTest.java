@@ -20,7 +20,7 @@ import static org.mockito.Mockito.verify;
 
 class TaskRunnerTest {
 
-	interface TestStrategy extends TaskRunnerInterface, Runnable {}
+	interface TestStrategy extends TaskRunnerInterface {}
 
 	@Test
 	void testRunAll10Minutes() throws Exception {
