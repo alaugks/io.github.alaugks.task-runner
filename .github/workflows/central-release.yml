@@ -8,8 +8,8 @@ on:
 jobs:
   release:
     name: Release
-    # Only snapshot branches may deploy; manual runs on any other ref are skipped
-    if: startsWith(github.ref, 'refs/heads/snapshot/')
+    # Only the snapshot branch may deploy. Manual runs on any other ref are skipped
+    if: github.ref == 'refs/heads/snapshot'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
