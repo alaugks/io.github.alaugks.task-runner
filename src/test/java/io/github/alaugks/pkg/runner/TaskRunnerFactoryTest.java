@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,7 +31,7 @@ class TaskRunnerFactoryTest {
 		strategyMap.add(mockMinutesStrategy);
 		strategyMap.add(mockMinutesStrategy);
 
-		TaskRunnerFactory factory = new TaskRunnerFactory(strategyMap);
+		TaskRunnerFactory factory = TaskRunnerFactory.builder(strategyMap).build();
 
 		factory.runAll(TaskRunnerInterface.class);
 
@@ -43,7 +44,7 @@ class TaskRunnerFactoryTest {
 
 		TestStrategy strategy = () -> threadNames.add(Thread.currentThread().getName());
 
-		TaskRunnerFactory factory = new TaskRunnerFactory(List.of(strategy));
+		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(strategy)).build();
 		factory.runAll(TestStrategy.class);
 
 		assertEquals(1, threadNames.size(), "Exactly one thread name should be captured");
@@ -55,7 +56,7 @@ class TaskRunnerFactoryTest {
 	void test_runAll_wrapsExceptionOfStrategy() {
 		TestStrategy failingStrategy = () -> { throw new IllegalStateException("Boom"); };
 
-		TaskRunnerFactory factory = new TaskRunnerFactory(List.of(failingStrategy));
+		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(failingStrategy)).build();
 
 		TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
 			factory.runAll(TestStrategy.class);
@@ -76,7 +77,7 @@ class TaskRunnerFactoryTest {
 			}
 		};
 
-		TaskRunnerFactory factory = new TaskRunnerFactory(List.of(blockingStrategy));
+		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(blockingStrategy)).build();
 
 		Thread.currentThread().interrupt();
 		try {
@@ -90,5 +91,40 @@ class TaskRunnerFactoryTest {
 			Thread.interrupted();
 			release.countDown();
 		}
+	}
+
+	@Test
+	void test_builder_rejectsInvalidPoolSize() {
+		TaskRunnerFactory.Builder builder = TaskRunnerFactory.builder(List.of());
+
+		assertThrows(IllegalArgumentException.class, () -> builder.poolSize(0));
+	}
+
+	@Test
+	void test_builder_rejectsNullStrategies() {
+		assertThrows(NullPointerException.class, () -> TaskRunnerFactory.builder(null));
+	}
+
+	@Test
+	void test_runAll_respectsPoolSize() {
+		AtomicInteger running = new AtomicInteger();
+		AtomicInteger maxRunning = new AtomicInteger();
+
+		TestStrategy strategy = () -> {
+			maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			running.decrementAndGet();
+		};
+
+		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(strategy, strategy, strategy))
+			.poolSize(1)
+			.build();
+		factory.runAll(TestStrategy.class);
+
+		assertEquals(1, maxRunning.get());
 	}
 }

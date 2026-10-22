@@ -4,18 +4,18 @@
 
 A small Spring Boot library that runs multiple task strategies in parallel.
 
-`TaskRunnerFactory` collects every Spring-managed bean that implements a given
-`TaskRunnerInterface` subtype and executes each one concurrently on a fixed
-thread pool. Exceptions thrown inside a task are propagated back to the caller,
+`TaskRunnerFactory` takes a list of `TaskRunnerInterface` strategies (typically
+all Spring-managed beans), picks those implementing a given subtype and
+executes each one concurrently on a fixed thread pool. Exceptions thrown inside a task are propagated back to the caller,
 and each worker thread is renamed to `strategy-<ClassName>-<ThreadId>` to make
 logs easier to read.
 
 ## Requirements
 
 - Java 17+
-- Spring Framework 7 / Spring Boot 4.x (the artifact is built against
-  `spring-boot-starter-parent` 4.1.1 and only depends on `spring-context` and
-  `slf4j-api`)
+- `slf4j-api` (the only dependency)
+- Spring Framework 7 / Spring Boot 4.x for the examples below (the library
+  itself has no Spring dependency)
 
 ## Getting the code
 
@@ -51,18 +51,10 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 </dependency>
 ```
 
-`TaskRunnerFactory` is a `@Component` in the package `io`.
-Make sure that package is part of your component scan, for example:
-
-```java
-@SpringBootApplication(scanBasePackages = {"com.example", "io.github.alaugks.pkg.runner"})
-```
-
 ### Production: copy the source
 
 The library consists of only two classes, `TaskRunnerFactory` and
-`TaskRunnerInterface`. Copy them into your own project, into a package that is
-part of your component scan. Keep the license and the
+`TaskRunnerInterface`. Copy them into your own project. Keep the license and the
 `SPDX-License-Identifier` header (see [License](#license)).
 
 ## Usage
@@ -109,7 +101,34 @@ public class RefreshCacheJob implements NightlyJob {
 }
 ```
 
-### 3. Run all strategies in parallel
+### 3. Create the factory
+
+Create the factory with its builder and expose it as a bean. The builder takes
+all strategies; Spring injects every bean implementing
+`TaskRunnerInterface`. The pool size is optional and defaults to 10.
+
+```java
+package com.example.jobs;
+
+import io.github.alaugks.pkg.runner.TaskRunnerFactory;
+import io.github.alaugks.pkg.runner.TaskRunnerInterface;
+import java.util.List;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class TaskRunnerConfig {
+
+    @Bean
+    public TaskRunnerFactory taskRunnerFactory(List<TaskRunnerInterface> strategies) {
+        return TaskRunnerFactory.builder(strategies)
+            .poolSize(4) // optional, default: 10
+            .build();
+    }
+}
+```
+
+### 4. Run all strategies in parallel
 
 Inject `TaskRunnerFactory` and call `runAll(...)` with the marker interface.
 Every matching bean runs concurrently; the call returns once all of them
@@ -130,7 +149,7 @@ public class NightlyScheduler {
         this.taskRunnerFactory = taskRunnerFactory;
     }
 
-    public void runNightly() throws Exception {
+    public void runNightly() {
         taskRunnerFactory.runAll(NightlyJob.class);
     }
 }
@@ -140,7 +159,7 @@ You can define as many marker interfaces as you need (for example
 `NightlyJob`, `HourlyJob`, `OnStartupJob`) and call `runAll(...)` separately
 for each one.
 
-### 4. Trigger strategies from a scheduled job
+### 5. Trigger strategies from a scheduled job
 
 To run a strategy group on a schedule, enable Spring scheduling and annotate a
 method with `@Scheduled`. The example below runs every night at 02:00.
@@ -182,7 +201,7 @@ public class Tasks {
     }
 
     @Scheduled(cron = "0 0 2 * * *", zone = "Europe/Berlin")
-    public void runNightly() throws Exception {
+    public void runNightly() {
         taskRunnerFactory.runAll(NightlyJob.class);
     }
 }
@@ -199,22 +218,24 @@ jobs:
 
 ```java
 @Scheduled(cron = "${jobs.nightly.cron}", zone = "Europe/Berlin")
-public void runNightly() throws Exception {
+public void runNightly() {
     taskRunnerFactory.runAll(NightlyJob.class);
 }
 ```
 
 ## Behavior
 
-- **Concurrency:** strategies run on a fixed pool of 10 threads.
+- **Concurrency:** strategies run on a fixed thread pool. The size is set with
+  `poolSize(...)` on the builder and defaults to 10.
 - **Thread names:** each worker thread is named
   `strategy-<StrategyClassName>-<ThreadId>` for the duration of the task.
 - **Error handling:** `runAll` waits for the tasks in order. If a strategy
-  throws, the original exception is rethrown (unwrapped from
-  `ExecutionException`; non-`Exception` throwables are wrapped in a
-  `RuntimeException`). Tasks that are already running are not cancelled.
+  throws, the exception is wrapped in a `TaskRunnerRuntimeException` (the
+  original exception is its cause). If the calling thread is interrupted, the
+  interrupt flag is restored and a `TaskRunnerRuntimeException` is thrown.
+  Tasks that are already running are not cancelled.
 - **Logging:** task start is logged at `DEBUG` via SLF4J under the
-  `io` logger.
+  `io.github.alaugks.pkg.runner.TaskRunnerFactory` logger.
 
 ## Build
 

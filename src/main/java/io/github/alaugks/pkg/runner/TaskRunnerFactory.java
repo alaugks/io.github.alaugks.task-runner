@@ -3,24 +3,30 @@
 package io.github.alaugks.pkg.runner;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 
-@Component
 public class TaskRunnerFactory {
+
+	public static final int DEFAULT_POOL_SIZE = 10;
 
 	private static final Logger logger = LoggerFactory.getLogger(TaskRunnerFactory.class);
 	private final List<TaskRunnerInterface> strategies;
-	private final ExecutorService executor = Executors.newFixedThreadPool(10);
+	private final ExecutorService executor;
 
-	public TaskRunnerFactory(List<TaskRunnerInterface> strategies) {
-		this.strategies = strategies;
+	private TaskRunnerFactory(Builder builder) {
+		this.strategies = builder.strategies;
+		this.executor = Executors.newFixedThreadPool(builder.poolSize);
+	}
+
+	public static Builder builder(List<TaskRunnerInterface> strategies) {
+		return new Builder(strategies);
 	}
 
 	public <T extends TaskRunnerInterface & Runnable> void runAll(Class<T> strategyClass) throws TaskRunnerRuntimeException {
@@ -51,6 +57,28 @@ public class TaskRunnerFactory {
 				Thread.currentThread().interrupt();
 				throw new TaskRunnerRuntimeException(e);
 			}
+		}
+	}
+
+	public static final class Builder {
+
+		private final List<TaskRunnerInterface> strategies;
+		private int poolSize = DEFAULT_POOL_SIZE;
+
+		private Builder(List<TaskRunnerInterface> strategies) {
+			this.strategies = Objects.requireNonNull(strategies, "strategies must not be null");
+		}
+
+		public Builder poolSize(int poolSize) {
+			if (poolSize < 1) {
+				throw new IllegalArgumentException("poolSize must be at least 1 but was " + poolSize);
+			}
+			this.poolSize = poolSize;
+			return this;
+		}
+
+		public TaskRunnerFactory build() {
+			return new TaskRunnerFactory(this);
 		}
 	}
 }
