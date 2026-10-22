@@ -12,15 +12,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class TaskRunnerFactory {
+public class TaskRunner {
 
 	public static final int DEFAULT_POOL_SIZE = 10;
 
-	private static final Logger logger = LoggerFactory.getLogger(TaskRunnerFactory.class);
+	private static final Logger logger = LoggerFactory.getLogger(TaskRunner.class);
 	private final List<TaskRunnerInterface> strategies;
 	private final ExecutorService executor;
 
-	private TaskRunnerFactory(Builder builder) {
+	private TaskRunner(Builder builder) {
 		this.strategies = builder.strategies;
 		this.executor = Executors.newFixedThreadPool(builder.poolSize);
 	}
@@ -77,8 +77,8 @@ public class TaskRunnerFactory {
 			return this;
 		}
 
-		public TaskRunnerFactory build() {
-			return new TaskRunnerFactory(this);
+		public TaskRunner build() {
+			return new TaskRunner(this);
 		}
 	}
 }

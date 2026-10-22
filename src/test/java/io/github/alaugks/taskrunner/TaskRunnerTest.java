@@ -18,7 +18,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-class TaskRunnerFactoryTest {
+class TaskRunnerTest {
 
 	interface TestStrategy extends TaskRunnerInterface, Runnable {}
 
@@ -31,9 +31,9 @@ class TaskRunnerFactoryTest {
 		strategyMap.add(mockMinutesStrategy);
 		strategyMap.add(mockMinutesStrategy);
 
-		TaskRunnerFactory factory = TaskRunnerFactory.builder(strategyMap).build();
+		TaskRunner runner = TaskRunner.builder(strategyMap).build();
 
-		factory.runAll(TaskRunnerInterface.class);
+		runner.runAll(TaskRunnerInterface.class);
 
 		verify(mockMinutesStrategy, times(2)).run();
 	}
@@ -44,8 +44,8 @@ class TaskRunnerFactoryTest {
 
 		TestStrategy strategy = () -> threadNames.add(Thread.currentThread().getName());
 
-		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(strategy)).build();
-		factory.runAll(TestStrategy.class);
+		TaskRunner runner = TaskRunner.builder(List.of(strategy)).build();
+		runner.runAll(TestStrategy.class);
 
 		assertEquals(1, threadNames.size(), "Exactly one thread name should be captured");
 		String threadName = threadNames.iterator().next();
@@ -56,10 +56,10 @@ class TaskRunnerFactoryTest {
 	void test_runAll_wrapsExceptionOfStrategy() {
 		TestStrategy failingStrategy = () -> { throw new IllegalStateException("Boom"); };
 
-		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(failingStrategy)).build();
+		TaskRunner runner = TaskRunner.builder(List.of(failingStrategy)).build();
 
 		TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
-			factory.runAll(TestStrategy.class);
+			runner.runAll(TestStrategy.class);
 		});
 
 		assertInstanceOf(IllegalStateException.class, ex.getCause());
@@ -77,12 +77,12 @@ class TaskRunnerFactoryTest {
 			}
 		};
 
-		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(blockingStrategy)).build();
+		TaskRunner runner = TaskRunner.builder(List.of(blockingStrategy)).build();
 
 		Thread.currentThread().interrupt();
 		try {
 			TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
-				factory.runAll(TestStrategy.class);
+				runner.runAll(TestStrategy.class);
 			});
 
 			assertInstanceOf(InterruptedException.class, ex.getCause());
@@ -95,14 +95,14 @@ class TaskRunnerFactoryTest {
 
 	@Test
 	void test_builder_rejectsInvalidPoolSize() {
-		TaskRunnerFactory.Builder builder = TaskRunnerFactory.builder(List.of());
+		TaskRunner.Builder builder = TaskRunner.builder(List.of());
 
 		assertThrows(IllegalArgumentException.class, () -> builder.poolSize(0));
 	}
 
 	@Test
 	void test_builder_rejectsNullStrategies() {
-		assertThrows(NullPointerException.class, () -> TaskRunnerFactory.builder(null));
+		assertThrows(NullPointerException.class, () -> TaskRunner.builder(null));
 	}
 
 	@Test
@@ -120,10 +120,10 @@ class TaskRunnerFactoryTest {
 			running.decrementAndGet();
 		};
 
-		TaskRunnerFactory factory = TaskRunnerFactory.builder(List.of(strategy, strategy, strategy))
+		TaskRunner runner = TaskRunner.builder(List.of(strategy, strategy, strategy))
 			.poolSize(1)
 			.build();
-		factory.runAll(TestStrategy.class);
+		runner.runAll(TestStrategy.class);
 
 		assertEquals(1, maxRunning.get());
 	}

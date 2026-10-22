@@ -4,7 +4,7 @@
 
 A small Spring Boot library that runs multiple task strategies in parallel.
 
-`TaskRunnerFactory` takes a list of `TaskRunnerInterface` strategies (typically
+`TaskRunner` takes a list of `TaskRunnerInterface` strategies (typically
 all Spring-managed beans), picks those implementing a given subtype and
 executes each one concurrently on a fixed thread pool. Exceptions thrown inside a task are propagated back to the caller,
 and each worker thread is renamed to `strategy-<ClassName>-<ThreadId>` to make
@@ -53,8 +53,8 @@ repository and the dependency to your `pom.xml`. No authentication is required.
 
 ### Production: copy the source
 
-The library consists of only two classes, `TaskRunnerFactory` and
-`TaskRunnerInterface`. Copy them into your own project. Keep the license and the
+The library consists of only three classes, `TaskRunner`,
+`TaskRunnerInterface` and `TaskRunnerRuntimeException`. Copy them into your own project. Keep the license and the
 `SPDX-License-Identifier` header (see [License](#license)).
 
 ## Usage
@@ -62,7 +62,7 @@ The library consists of only two classes, `TaskRunnerFactory` and
 ### 1. Define a marker interface for a group of strategies
 
 Group related tasks behind a shared interface that extends
-`TaskRunnerInterface`. The factory uses this interface to pick which beans to
+`TaskRunnerInterface`. The runner uses this interface to pick which beans to
 run together.
 
 ```java
@@ -101,16 +101,16 @@ public class RefreshCacheJob implements NightlyJob {
 }
 ```
 
-### 3. Create the factory
+### 3. Create the runner
 
-Create the factory with its builder and expose it as a bean. The builder takes
+Create the runner with its builder and expose it as a bean. The builder takes
 all strategies; Spring injects every bean implementing
 `TaskRunnerInterface`. The pool size is optional and defaults to 10.
 
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.taskrunner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunner;
 import io.github.alaugks.taskrunner.TaskRunnerInterface;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
@@ -120,8 +120,8 @@ import org.springframework.context.annotation.Configuration;
 public class TaskRunnerConfig {
 
     @Bean
-    public TaskRunnerFactory taskRunnerFactory(List<TaskRunnerInterface> strategies) {
-        return TaskRunnerFactory.builder(strategies)
+    public TaskRunner taskRunner(List<TaskRunnerInterface> strategies) {
+        return TaskRunner.builder(strategies)
             .poolSize(4) // optional, default: 10
             .build();
     }
@@ -130,27 +130,27 @@ public class TaskRunnerConfig {
 
 ### 4. Run all strategies in parallel
 
-Inject `TaskRunnerFactory` and call `runAll(...)` with the marker interface.
+Inject `TaskRunner` and call `runAll(...)` with the marker interface.
 Every matching bean runs concurrently; the call returns once all of them
 finish.
 
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.taskrunner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunner;
 import org.springframework.stereotype.Service;
 
 @Service
 public class NightlyScheduler {
 
-    private final TaskRunnerFactory taskRunnerFactory;
+    private final TaskRunner taskRunner;
 
-    public NightlyScheduler(TaskRunnerFactory taskRunnerFactory) {
-        this.taskRunnerFactory = taskRunnerFactory;
+    public NightlyScheduler(TaskRunner taskRunner) {
+        this.taskRunner = taskRunner;
     }
 
     public void runNightly() {
-        taskRunnerFactory.runAll(NightlyJob.class);
+        taskRunner.runAll(NightlyJob.class);
     }
 }
 ```
@@ -182,27 +182,27 @@ public class Application {
 }
 ```
 
-Then add a scheduled trigger that delegates to `TaskRunnerFactory`:
+Then add a scheduled trigger that delegates to `TaskRunner`:
 
 ```java
 package com.example.jobs;
 
-import io.github.alaugks.taskrunner.TaskRunnerFactory;
+import io.github.alaugks.taskrunner.TaskRunner;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 public class Tasks {
 
-    private final TaskRunnerFactory taskRunnerFactory;
+    private final TaskRunner taskRunner;
 
-    public Tasks(TaskRunnerFactory taskRunnerFactory) {
-        this.taskRunnerFactory = taskRunnerFactory;
+    public Tasks(TaskRunner taskRunner) {
+        this.taskRunner = taskRunner;
     }
 
     @Scheduled(cron = "0 0 2 * * *", zone = "Europe/Berlin")
     public void runNightly() {
-        taskRunnerFactory.runAll(NightlyJob.class);
+        taskRunner.runAll(NightlyJob.class);
     }
 }
 ```
@@ -219,7 +219,7 @@ jobs:
 ```java
 @Scheduled(cron = "${jobs.nightly.cron}", zone = "Europe/Berlin")
 public void runNightly() {
-    taskRunnerFactory.runAll(NightlyJob.class);
+    taskRunner.runAll(NightlyJob.class);
 }
 ```
 
@@ -235,7 +235,7 @@ public void runNightly() {
   interrupt flag is restored and a `TaskRunnerRuntimeException` is thrown.
   Tasks that are already running are not cancelled.
 - **Logging:** task start is logged at `DEBUG` via SLF4J under the
-  `io.github.alaugks.taskrunner.TaskRunnerFactory` logger.
+  `io.github.alaugks.taskrunner.TaskRunner` logger.
 
 ## Build
 
