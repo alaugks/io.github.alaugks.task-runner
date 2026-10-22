@@ -150,7 +150,7 @@ public class NightlyScheduler {
     }
 
     public void runNightly() {
-        taskRunner.runAll(NightlyJob.class);
+        this.taskRunner.runAll(NightlyJob.class);
     }
 }
 ```
@@ -202,7 +202,7 @@ public class Tasks {
 
     @Scheduled(cron = "0 0 2 * * *", zone = "Europe/Berlin")
     public void runNightly() {
-        taskRunner.runAll(NightlyJob.class);
+        this.taskRunner.runAll(NightlyJob.class);
     }
 }
 ```
@@ -219,7 +219,7 @@ jobs:
 ```java
 @Scheduled(cron = "${jobs.nightly.cron}", zone = "Europe/Berlin")
 public void runNightly() {
-    taskRunner.runAll(NightlyJob.class);
+    this.taskRunner.runAll(NightlyJob.class);
 }
 ```
 
