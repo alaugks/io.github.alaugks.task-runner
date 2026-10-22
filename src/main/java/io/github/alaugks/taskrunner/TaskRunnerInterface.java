@@ -4,5 +4,4 @@ package io.github.alaugks.taskrunner;
 
 public interface TaskRunnerInterface extends Runnable {
 
-	void run();
 }
