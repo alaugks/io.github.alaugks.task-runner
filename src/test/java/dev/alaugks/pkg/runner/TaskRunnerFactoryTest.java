@@ -6,9 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -50,15 +52,43 @@ class TaskRunnerFactoryTest {
 	}
 
 	@Test
-	void test_runAll_propagatesException() {
+	void test_runAll_wrapsExceptionOfStrategy() {
 		TestStrategy failingStrategy = () -> { throw new IllegalStateException("Boom"); };
 
 		TaskRunnerFactory factory = new TaskRunnerFactory(List.of(failingStrategy));
 
-		IllegalStateException ex = assertThrows(IllegalStateException.class, () -> {
+		TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
 			factory.runAll(TestStrategy.class);
 		});
 
-		assertEquals("Boom", ex.getMessage());
+		assertInstanceOf(IllegalStateException.class, ex.getCause());
+		assertEquals("Boom", ex.getCause().getMessage());
+	}
+
+	@Test
+	void test_runAll_restoresInterruptFlagWhenInterrupted() {
+		CountDownLatch release = new CountDownLatch(1);
+		TestStrategy blockingStrategy = () -> {
+			try {
+				release.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		};
+
+		TaskRunnerFactory factory = new TaskRunnerFactory(List.of(blockingStrategy));
+
+		Thread.currentThread().interrupt();
+		try {
+			TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
+				factory.runAll(TestStrategy.class);
+			});
+
+			assertInstanceOf(InterruptedException.class, ex.getCause());
+			assertTrue(Thread.currentThread().isInterrupted(), "Interrupt flag should be restored");
+		} finally {
+			Thread.interrupted();
+			release.countDown();
+		}
 	}
 }

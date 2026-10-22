@@ -23,7 +23,7 @@ public class TaskRunnerFactory {
 		this.strategies = strategies;
 	}
 
-	public <T extends TaskRunnerInterface & Runnable> void runAll(Class<T> strategyClass) throws Exception {
+	public <T extends TaskRunnerInterface & Runnable> void runAll(Class<T> strategyClass) throws TaskRunnerRuntimeException {
 		List<? extends Future<?>> futures = this.strategies.stream()
 			.filter(strategyClass::isInstance)
 			.map(strategyClass::cast)
@@ -46,7 +46,10 @@ public class TaskRunnerFactory {
 			try {
 				future.get();
 			} catch (ExecutionException e) {
-				throw (e.getCause() instanceof Exception ex) ? ex : new RuntimeException(e.getCause());
+				throw new TaskRunnerRuntimeException(e.getCause());
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new TaskRunnerRuntimeException(e);
 			}
 		}
 	}
