@@ -1,4 +1,4 @@
-# pkg.runner – Parallel Task Strategies for Spring
+# Parallel Task Strategies for Spring
 
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=alaugks_pkg-taskrunner&metric=alert_status)](https://sonarcloud.io/summary/overall?id=alaugks_pkg-taskrunner)
 
