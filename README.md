@@ -1,15 +1,21 @@
-# Parallel Task Strategies
+# Parallel Task Runner
 
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=alaugks_pkg-taskrunner&metric=alert_status)](https://sonarcloud.io/summary/overall?id=alaugks_pkg-taskrunner)
 
-A small library that runs multiple task strategies in parallel. It works with
+A small library that runs multiple tasks in parallel. It works with
 plain Java and integrates easily with Spring, but has no Spring dependency.
 
-`TaskRunner` takes a list of `TaskRunnerInterface` strategies (for example all
-Spring-managed beans), picks those implementing a given subtype and executes
-each one concurrently on a fixed thread pool. Exceptions thrown inside a task
-are wrapped and propagated back to the caller, and each worker thread is
-renamed to `strategy-<ClassName>-<ThreadId>` to make logs easier to read.
+`TaskRunner` takes a list of `TaskRunnerInterface` tasks (for example all
+Spring-managed beans) and executes them concurrently on a fixed thread pool.
+Exceptions thrown inside a task are wrapped and propagated back to the caller,
+and each worker thread is renamed to `task-<ClassName>-<ThreadId>` to make logs
+easier to read.
+
+**The interface is the filter.** Each task implements a marker interface that
+says when or in which context it is responsible (for example `NoonTask` or
+`MidnightTask`). `runAll(MidnightTask.class)` runs exactly the tasks
+implementing `MidnightTask` and skips all others. This way you hand every task
+to the runner once and decide per call which group runs.
 
 ## Table of Contents
 
@@ -18,14 +24,14 @@ renamed to `strategy-<ClassName>-<ThreadId>` to make logs easier to read.
   - [Try it via Maven Central snapshots](#try-it-via-maven-central-snapshots)
   - [Production: copy the source](#production-copy-the-source)
 - [Usage](#usage)
-  - [1. Define a marker interface for a group of strategies](#1-define-a-marker-interface-for-a-group-of-strategies)
-  - [2. Implement strategies](#2-implement-strategies)
+  - [1. Define a marker interface for a group of tasks](#1-define-a-marker-interface-for-a-group-of-tasks)
+  - [2. Implement tasks](#2-implement-tasks)
 - [Usage without Spring](#usage-without-spring)
 - [Usage with Spring](#usage-with-spring)
-  - [Strategies as Spring beans](#strategies-as-spring-beans)
+  - [Tasks as Spring beans](#tasks-as-spring-beans)
   - [Create the runner](#create-the-runner)
-  - [Run all strategies in parallel](#run-all-strategies-in-parallel)
-  - [Trigger strategies from a scheduled job](#trigger-strategies-from-a-scheduled-job)
+  - [Run all tasks in parallel](#run-all-tasks-in-parallel)
+  - [Trigger tasks from a scheduled task](#trigger-tasks-from-a-scheduled-task)
 - [Behavior](#behavior)
 - [Build](#build)
 - [License](#license)
@@ -38,7 +44,7 @@ renamed to `strategy-<ClassName>-<ThreadId>` to make logs easier to read.
 
 ## Getting the code
 
-> [!NOTE] 
+> [!NOTE]
 > **For testing only.** For the time being, the library is published as a
 > `SNAPSHOT` to the Maven Central snapshot repository. Use it to try the
 > library out. For production, copy the source code into your own project (see
@@ -78,100 +84,130 @@ The library consists of only three classes, `TaskRunner`,
 
 ## Usage
 
-### 1. Define a marker interface for a group of strategies
+### 1. Define a marker interface for a group of tasks
 
 Group related tasks behind a shared interface that extends
-`TaskRunnerInterface`. The runner uses this interface to pick which strategies
-to run together.
+`TaskRunnerInterface`. The interface acts as a filter: the runner only runs
+the tasks implementing the interface you pass to `runAll`. Use one interface
+per group of tasks that should run together, for example per schedule.
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
 import io.github.alaugks.taskrunner.TaskRunnerInterface;
 
-public interface NightlyJob extends TaskRunnerInterface {
+public interface NoonTask extends TaskRunnerInterface {
+}
+
+public interface MidnightTask extends TaskRunnerInterface {
 }
 ```
 
-### 2. Implement strategies
+### 2. Implement tasks
 
-Each strategy implements your marker interface. The `run()` method contains the
-task logic.
+Each task implements the marker interface of the group it belongs to. The
+`run()` method contains the task logic. `SendMessageTask` belongs to the
+`NoonTask` group, `CleanupTempFilesTask` and `RefreshCacheTask` to the
+`MidnightTask` group.
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
-public class CleanupTempFilesJob implements NightlyJob {
+public class SendMessageTask implements NoonTask {
     @Override
     public void run() {
-        // ... do work
+        // ...
     }
 }
 
-public class RefreshCacheJob implements NightlyJob {
+public class CleanupTempFilesTask implements MidnightTask {
     @Override
     public void run() {
-        // ... do work
+        // ...
+    }
+}
+
+public class RefreshCacheTask implements MidnightTask {
+    @Override
+    public void run() {
+        // ...
     }
 }
 ```
 
 ## Usage without Spring
 
-Pass all strategies to the builder and call `runAll(Class<T> strategyClass)`
-with the marker interface. Every matching strategy runs concurrently; the call
-returns once all of them finish. The pool size is optional and defaults to 10.
+Pass all tasks to the builder and call `runAll(Class<T> taskClass)`
+with the marker interface. The interface filters the tasks: every task
+implementing it runs concurrently, all others are ignored. The call returns
+once all matching tasks finish. The pool size is optional and defaults to 10.
 
 ```java
 package com.example;
 
 import io.github.alaugks.taskrunner.TaskRunner;
 import io.github.alaugks.taskrunner.TaskRunnerInterface;
-import com.example.jobs.CleanupTempFilesJob;
-import com.example.jobs.NightlyJob;
-import com.example.jobs.RefreshCacheJob;
+import com.example.tasks.CleanupTempFilesTask;
+import com.example.tasks.MidnightTask;
+import com.example.tasks.NoonTask;
+import com.example.tasks.RefreshCacheTask;
+import com.example.tasks.SendMessageTask;
 import java.util.List;
 
 public class Application {
     public static void main(String[] args) {
-        List<TaskRunnerInterface> strategies = List.of(
-            new CleanupTempFilesJob(),
-            new RefreshCacheJob()
+        List<TaskRunnerInterface> tasks = List.of(
+            new SendMessageTask(),
+            new CleanupTempFilesTask(),
+            new RefreshCacheTask()
         );
 
-        TaskRunner taskRunner = TaskRunner.builder(strategies)
+        TaskRunner taskRunner = TaskRunner.builder(tasks)
             .poolSize(4) // optional, default: 10
             .build();
 
-        taskRunner.runAll(NightlyJob.class);
+        // Runs only the tasks implementing MidnightTask
+        // (CleanupTempFilesTask, RefreshCacheTask)
+        taskRunner.runAll(MidnightTask.class);
+
+        // Runs only the tasks implementing NoonTask (SendMessageTask)
+        taskRunner.runAll(NoonTask.class);
     }
 }
 ```
 
 ## Usage with Spring
 
-### Strategies as Spring beans
+### Tasks as Spring beans
 
-Annotate each strategy with `@Component`:
+Annotate each task with `@Component`:
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
 import org.springframework.stereotype.Component;
 
 @Component
-public class CleanupTempFilesJob implements NightlyJob {
+public class SendMessageTask implements NoonTask {
     @Override
     public void run() {
-        // ... do work
+        // ...
     }
 }
 
 @Component
-public class RefreshCacheJob implements NightlyJob {
+public class CleanupTempFilesTask implements MidnightTask {
     @Override
     public void run() {
-        // ... do work
+        // ...
+    }
+}
+
+@Component
+public class RefreshCacheTask implements MidnightTask {
+    @Override
+    public void run() {
+        // ...
     }
 }
 ```
@@ -179,11 +215,11 @@ public class RefreshCacheJob implements NightlyJob {
 ### Create the runner
 
 Create the runner with its builder and expose it as a bean. The builder takes
-all strategies; Spring injects every bean implementing
+all tasks; Spring injects every bean implementing
 `TaskRunnerInterface`. The pool size is optional and defaults to 10.
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
 import io.github.alaugks.taskrunner.TaskRunner;
 import io.github.alaugks.taskrunner.TaskRunnerInterface;
@@ -195,49 +231,56 @@ import org.springframework.context.annotation.Configuration;
 public class TaskRunnerConfig {
 
     @Bean
-    public TaskRunner taskRunner(List<TaskRunnerInterface> strategies) {
-        return TaskRunner.builder(strategies)
+    public TaskRunner taskRunner(List<TaskRunnerInterface> tasks) {
+        return TaskRunner.builder(tasks)
             .poolSize(4) // optional, default: 10
             .build();
     }
 }
 ```
 
-### Run all strategies in parallel
+### Run all tasks in parallel
 
-Inject `TaskRunner` and call `runAll(Class<T> strategyClass)` with the marker
-interface. Every matching bean runs concurrently; the call returns once all of
-them finish.
+Inject `TaskRunner` and call `runAll(Class<T> taskClass)` with the marker
+interface. The interface filters the beans: every bean implementing it runs
+concurrently, all others are ignored. The call returns once all matching beans
+finish.
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
 import io.github.alaugks.taskrunner.TaskRunner;
 import org.springframework.stereotype.Service;
 
 @Service
-public class NightlyScheduler {
+public class MidnightScheduler {
 
     private final TaskRunner taskRunner;
 
-    public NightlyScheduler(TaskRunner taskRunner) {
+    public MidnightScheduler(TaskRunner taskRunner) {
         this.taskRunner = taskRunner;
     }
 
-    public void runNightly() {
-        this.taskRunner.runAll(NightlyJob.class);
+    public void runMidnight() {
+        // Runs only the tasks implementing MidnightTask
+        this.taskRunner.runAll(MidnightTask.class);
+    }
+
+    public void runNoon() {
+        // Runs only the tasks implementing NoonTask
+        this.taskRunner.runAll(NoonTask.class);
     }
 }
 ```
 
-You can define as many marker interfaces as you need (for example
-`NightlyJob`, `HourlyJob`, `OnStartupJob`) and call
-`runAll(Class<T> strategyClass)` separately for each one.
+You can define as many marker interfaces as you need (like `NoonTask` and
+`MidnightTask` above) and call `runAll(Class<T> taskClass)` separately for each
+one.
 
-### Trigger strategies from a scheduled job
+### Trigger tasks from a scheduled task
 
-To run a strategy group on a schedule, enable Spring scheduling and annotate a
-method with `@Scheduled`. The example below runs every night at 02:00.
+To run a task group on a schedule, enable Spring scheduling and annotate a
+method with `@Scheduled`. The example below runs `NoonTask` every day at 12:00 and `MidnightTask` every day at 00:00.
 
 Enable scheduling once in your application (for example on the main class):
 
@@ -260,24 +303,29 @@ public class Application {
 Then add a scheduled trigger that delegates to `TaskRunner`:
 
 ```java
-package com.example.jobs;
+package com.example.tasks;
 
 import io.github.alaugks.taskrunner.TaskRunner;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-public class Tasks {
+public class ScheduledTasks {
 
     private final TaskRunner taskRunner;
 
-    public Tasks(TaskRunner taskRunner) {
+    public ScheduledTasks(TaskRunner taskRunner) {
         this.taskRunner = taskRunner;
     }
 
-    @Scheduled(cron = "0 0 2 * * *", zone = "Europe/Berlin")
-    public void runNightly() {
-        this.taskRunner.runAll(NightlyJob.class);
+    @Scheduled(cron = "0 0 12 * * *", zone = "Europe/Berlin")
+    public void runNoon() {
+        this.taskRunner.runAll(NoonTask.class);
+    }
+
+    @Scheduled(cron = "0 0 0 * * *", zone = "Europe/Berlin")
+    public void runMidnight() {
+        this.taskRunner.runAll(MidnightTask.class);
     }
 }
 ```
@@ -286,25 +334,35 @@ Make the cron expression configurable via `application.yml` if you want to
 adjust it per environment:
 
 ```yaml
-jobs:
-  nightly:
-    cron: "0 0 2 * * *"
+tasks:
+  noon:
+    cron: "0 0 12 * * *"
+  midnight:
+    cron: "0 0 0 * * *"
 ```
 
 ```java
-@Scheduled(cron = "${jobs.nightly.cron}", zone = "Europe/Berlin")
-public void runNightly() {
-    this.taskRunner.runAll(NightlyJob.class);
+@Scheduled(cron = "${tasks.noon.cron}", zone = "Europe/Berlin")
+public void runMidnight() {
+    this.taskRunner.runAll(NoonTask.class);
+}
+
+@Scheduled(cron = "${tasks.midnight.cron}", zone = "Europe/Berlin")
+public void runMidnight() {
+    this.taskRunner.runAll(MidnightTask.class);
 }
 ```
 
 ## Behavior
 
-- **Concurrency:** strategies run on a fixed thread pool. The size is set with
+- **Filtering:** `runAll(Class<T> taskClass)` runs every task that is an
+  instance of `taskClass`. A task implementing several marker interfaces runs
+  whenever one of them is passed.
+- **Concurrency:** tasks run on a fixed thread pool. The size is set with
   `poolSize(int poolSize)` on the builder and defaults to 10.
 - **Thread names:** each worker thread is named
-  `strategy-<StrategyClassName>-<ThreadId>` for the duration of the task.
-- **Error handling:** `runAll` waits for the tasks in order. If a strategy
+  `task-<TaskClassName>-<ThreadId>` for the duration of the task.
+- **Error handling:** `runAll` waits for the tasks in order. If a task
   throws, the exception is wrapped in a `TaskRunnerRuntimeException` (the
   original exception is its cause). If the calling thread is interrupted, the
   interrupt flag is restored and a `TaskRunnerRuntimeException` is thrown.
@@ -315,7 +373,7 @@ public void runNightly() {
 ## Build
 
 ```bash
-./mvnw clean install
+mvn clean install
 ```
 
 ## License

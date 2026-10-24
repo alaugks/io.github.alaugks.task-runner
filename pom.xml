@@ -14,7 +14,7 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>io.github.alaugks.taskrunner</name>
-    <description>Runs task strategies in parallel on a fixed thread pool.</description>
+    <description>Runs tasks in parallel on a fixed thread pool.</description>
     <url>https://github.com/alaugks/pkg-taskrunner</url>
 
     <scm>

@@ -20,46 +20,46 @@ import static org.mockito.Mockito.verify;
 
 class TaskRunnerTest {
 
-	interface TestStrategy extends TaskRunnerInterface {}
+	interface TestTask extends TaskRunnerInterface {}
 
 	@Test
 	void testRunAll10Minutes() {
 
-		TaskRunnerInterface mockMinutesStrategy = mock(TaskRunnerInterface.class);
+		TaskRunnerInterface mockMinutesTask = mock(TaskRunnerInterface.class);
 
-		List<TaskRunnerInterface> strategyMap = new ArrayList<>();
-		strategyMap.add(mockMinutesStrategy);
-		strategyMap.add(mockMinutesStrategy);
+		List<TaskRunnerInterface> taskMap = new ArrayList<>();
+		taskMap.add(mockMinutesTask);
+		taskMap.add(mockMinutesTask);
 
-		TaskRunner runner = TaskRunner.builder(strategyMap).build();
+		TaskRunner runner = TaskRunner.builder(taskMap).build();
 
 		runner.runAll(TaskRunnerInterface.class);
 
-		verify(mockMinutesStrategy, times(2)).run();
+		verify(mockMinutesTask, times(2)).run();
 	}
 
 	@Test
 	void test_runAll_setsCustomThreadName() {
 		Set<String> threadNames = ConcurrentHashMap.newKeySet();
 
-		TestStrategy strategy = () -> threadNames.add(Thread.currentThread().getName());
+		TestTask task = () -> threadNames.add(Thread.currentThread().getName());
 
-		TaskRunner runner = TaskRunner.builder(List.of(strategy)).build();
-		runner.runAll(TestStrategy.class);
+		TaskRunner runner = TaskRunner.builder(List.of(task)).build();
+		runner.runAll(TestTask.class);
 
 		assertEquals(1, threadNames.size(), "Exactly one thread name should be captured");
 		String threadName = threadNames.iterator().next();
-		assertTrue(threadName.startsWith("strategy-"), "Thread name should start with 'strategy-' but was: " + threadName);
+		assertTrue(threadName.startsWith("task-"), "Thread name should start with 'task-' but was: " + threadName);
 	}
 
 	@Test
-	void test_runAll_wrapsExceptionOfStrategy() {
-		TestStrategy failingStrategy = () -> { throw new IllegalStateException("Boom"); };
+	void test_runAll_wrapsExceptionOfTask() {
+		TestTask failingTask = () -> { throw new IllegalStateException("Boom"); };
 
-		TaskRunner runner = TaskRunner.builder(List.of(failingStrategy)).build();
+		TaskRunner runner = TaskRunner.builder(List.of(failingTask)).build();
 
 		TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
-			runner.runAll(TestStrategy.class);
+			runner.runAll(TestTask.class);
 		});
 
 		assertInstanceOf(IllegalStateException.class, ex.getCause());
@@ -69,7 +69,7 @@ class TaskRunnerTest {
 	@Test
 	void test_runAll_restoresInterruptFlagWhenInterrupted() {
 		CountDownLatch release = new CountDownLatch(1);
-		TestStrategy blockingStrategy = () -> {
+		TestTask blockingTask = () -> {
 			try {
 				release.await();
 			} catch (InterruptedException e) {
@@ -77,12 +77,12 @@ class TaskRunnerTest {
 			}
 		};
 
-		TaskRunner runner = TaskRunner.builder(List.of(blockingStrategy)).build();
+		TaskRunner runner = TaskRunner.builder(List.of(blockingTask)).build();
 
 		Thread.currentThread().interrupt();
 		try {
 			TaskRunnerRuntimeException ex = assertThrows(TaskRunnerRuntimeException.class, () -> {
-				runner.runAll(TestStrategy.class);
+				runner.runAll(TestTask.class);
 			});
 
 			assertInstanceOf(InterruptedException.class, ex.getCause());
@@ -101,7 +101,7 @@ class TaskRunnerTest {
 	}
 
 	@Test
-	void test_builder_rejectsNullStrategies() {
+	void test_builder_rejectsNullTasks() {
 		assertThrows(NullPointerException.class, () -> TaskRunner.builder(null));
 	}
 
@@ -110,7 +110,7 @@ class TaskRunnerTest {
 		AtomicInteger running = new AtomicInteger();
 		AtomicInteger maxRunning = new AtomicInteger();
 
-		TestStrategy strategy = () -> {
+		TestTask task = () -> {
 			maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
 			try {
 				Thread.sleep(50);
@@ -120,10 +120,10 @@ class TaskRunnerTest {
 			running.decrementAndGet();
 		};
 
-		TaskRunner runner = TaskRunner.builder(List.of(strategy, strategy, strategy))
+		TaskRunner runner = TaskRunner.builder(List.of(task, task, task))
 			.poolSize(1)
 			.build();
-		runner.runAll(TestStrategy.class);
+		runner.runAll(TestTask.class);
 
 		assertEquals(1, maxRunning.get());
 	}

@@ -17,34 +17,34 @@ public class TaskRunner {
 	public static final int DEFAULT_POOL_SIZE = 10;
 
 	private static final Logger logger = LoggerFactory.getLogger(TaskRunner.class);
-	private final List<TaskRunnerInterface> strategies;
+	private final List<TaskRunnerInterface> tasks;
 	private final ExecutorService executor;
 
 	private TaskRunner(Builder builder) {
-		this.strategies = builder.strategies;
+		this.tasks = builder.tasks;
 		this.executor = Executors.newFixedThreadPool(builder.poolSize);
 	}
 
-	public static Builder builder(List<TaskRunnerInterface> strategies) {
-		return new Builder(strategies);
+	public static Builder builder(List<TaskRunnerInterface> tasks) {
+		return new Builder(tasks);
 	}
 
-	public <T extends TaskRunnerInterface> void runAll(Class<T> strategyClass) throws TaskRunnerRuntimeException {
-		List<? extends Future<?>> futures = this.strategies.stream()
-			.filter(strategyClass::isInstance)
-			.map(strategyClass::cast)
-			.map(strategy -> executor.submit(() -> {
-				String threadName = "strategy-" + strategy.getClass().getSimpleName() + "-" + Thread.currentThread().getId();
+	public <T extends TaskRunnerInterface> void runAll(Class<T> taskClass) throws TaskRunnerRuntimeException {
+		List<? extends Future<?>> futures = this.tasks.stream()
+			.filter(taskClass::isInstance)
+			.map(taskClass::cast)
+			.map(task -> executor.submit(() -> {
+				String threadName = "task-" + task.getClass().getSimpleName() + "-" + Thread.currentThread().getId();
 				Thread.currentThread().setName(threadName);
 
 				logger.debug(
-					"Running in thread: class_name=[\"{}\"], strategy_class_name=[\"{}\"], thread_name=[\"{}\"]",
+					"Running in thread: class_name=[\"{}\"], task_class_name=[\"{}\"], thread_name=[\"{}\"]",
 					this.getClass().getSimpleName(),
-					strategy.getClass().getSimpleName(),
+					task.getClass().getSimpleName(),
 					threadName
 				);
 
-				strategy.run();
+				task.run();
 			}))
 			.toList();
 
@@ -62,11 +62,11 @@ public class TaskRunner {
 
 	public static final class Builder {
 
-		private final List<TaskRunnerInterface> strategies;
+		private final List<TaskRunnerInterface> tasks;
 		private int poolSize = DEFAULT_POOL_SIZE;
 
-		private Builder(List<TaskRunnerInterface> strategies) {
-			this.strategies = Objects.requireNonNull(strategies, "strategies must not be null");
+		private Builder(List<TaskRunnerInterface> tasks) {
+			this.tasks = Objects.requireNonNull(tasks, "tasks must not be null");
 		}
 
 		public Builder poolSize(int poolSize) {
