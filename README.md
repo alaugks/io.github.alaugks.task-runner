@@ -30,8 +30,7 @@ to the runner once and decide per call which group runs.
 - [Usage with Spring](#usage-with-spring)
   - [Tasks as Spring beans](#tasks-as-spring-beans)
   - [Create the runner](#create-the-runner)
-  - [Run all tasks in parallel](#run-all-tasks-in-parallel)
-  - [Trigger tasks from a scheduled task](#trigger-tasks-from-a-scheduled-task)
+  - [Run tasks on a schedule](#run-tasks-on-a-schedule)
 - [Behavior](#behavior)
 - [Build](#build)
 - [License](#license)
@@ -102,6 +101,9 @@ public interface NoonTask extends TaskRunnerInterface {
 public interface MidnightTask extends TaskRunnerInterface {
 }
 ```
+
+You can define as many marker interfaces as you need and call
+`runAll(Class<T> taskClass)` separately for each one.
 
 ### 2. Implement tasks
 
@@ -239,48 +241,13 @@ public class TaskRunnerConfig {
 }
 ```
 
-### Run all tasks in parallel
+### Run tasks on a schedule
 
 Inject `TaskRunner` and call `runAll(Class<T> taskClass)` with the marker
 interface. The interface filters the beans: every bean implementing it runs
-concurrently, all others are ignored. The call returns once all matching beans
-finish.
-
-```java
-package com.example.tasks;
-
-import io.github.alaugks.taskrunner.TaskRunner;
-import org.springframework.stereotype.Service;
-
-@Service
-public class MidnightScheduler {
-
-    private final TaskRunner taskRunner;
-
-    public MidnightScheduler(TaskRunner taskRunner) {
-        this.taskRunner = taskRunner;
-    }
-
-    public void runMidnight() {
-        // Runs only the tasks implementing MidnightTask
-        this.taskRunner.runAll(MidnightTask.class);
-    }
-
-    public void runNoon() {
-        // Runs only the tasks implementing NoonTask
-        this.taskRunner.runAll(NoonTask.class);
-    }
-}
-```
-
-You can define as many marker interfaces as you need (like `NoonTask` and
-`MidnightTask` above) and call `runAll(Class<T> taskClass)` separately for each
-one.
-
-### Trigger tasks from a scheduled task
-
-To run a task group on a schedule, enable Spring scheduling and annotate a
-method with `@Scheduled`. The example below runs `NoonTask` every day at 12:00 and `MidnightTask` every day at 00:00.
+concurrently, all others are ignored. To run a task group on a schedule,
+enable Spring scheduling and annotate a method with `@Scheduled`. The example
+below runs `NoonTask` every day at 12:00 and `MidnightTask` every day at 00:00.
 
 Enable scheduling once in your application (for example on the main class):
 
@@ -300,7 +267,7 @@ public class Application {
 }
 ```
 
-Then add a scheduled trigger that delegates to `TaskRunner`:
+Then add a scheduled trigger that delegates to `TaskRunner`.
 
 ```java
 package com.example.tasks;
@@ -330,8 +297,8 @@ public class ScheduledTasks {
 }
 ```
 
-Make the cron expression configurable via `application.yml` if you want to
-adjust it per environment:
+To adjust the schedule per environment, move the cron expressions to
+`application.yml`:
 
 ```yaml
 tasks:
@@ -341,15 +308,12 @@ tasks:
     cron: "0 0 0 * * *"
 ```
 
+and reference them in `@Scheduled`:
+
 ```java
 @Scheduled(cron = "${tasks.noon.cron}", zone = "Europe/Berlin")
-public void runMidnight() {
+public void runNoon() {
     this.taskRunner.runAll(NoonTask.class);
-}
-
-@Scheduled(cron = "${tasks.midnight.cron}", zone = "Europe/Berlin")
-public void runMidnight() {
-    this.taskRunner.runAll(MidnightTask.class);
 }
 ```
 
